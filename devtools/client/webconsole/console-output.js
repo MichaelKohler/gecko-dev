@@ -23,7 +23,6 @@ loader.lazyRequireGetter(this, "ObjectClient", "devtools/shared/client/main", tr
 const Heritage = require("sdk/core/heritage");
 const URI = Cc["@mozilla.org/network/io-service;1"].getService(Ci.nsIIOService);
 const XHTML_NS = "http://www.w3.org/1999/xhtml";
-const XUL_NS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
 const STRINGS_URI = "chrome://devtools/locale/webconsole.properties";
 
 const WebConsoleUtils = require("devtools/shared/webconsole/utils").Utils;
@@ -31,7 +30,8 @@ const { getSourceNames } = require("devtools/client/shared/source-utils");
 const l10n = new WebConsoleUtils.L10n(STRINGS_URI);
 
 const MAX_STRING_GRIP_LENGTH = 36;
-const ELLIPSIS = Services.prefs.getComplexValue("intl.ellipsis", Ci.nsIPrefLocalizedString).data;
+const ELLIPSIS = Services.prefs.getComplexValue("intl.ellipsis",
+  Ci.nsIPrefLocalizedString).data;
 
 // Constants for compatibility with the Web Console output implementation before
 // bug 778766.
@@ -62,16 +62,19 @@ const COMPAT = {
   //
   // Most of these rather idiosyncratic names are historical and predate the
   // division of message type into "category" and "severity".
+  //
+  // Rows: Network, CSS, JS, Web Developer, Input, Output, Security, Server
+  //       Logging
+  // Columns: Error, Warning, Info, Log
   PREFERENCE_KEYS: [
-    // Error        Warning       Info    Log
-    [ "network",    "netwarn",    null,   "networkinfo", ],  // Network
-    [ "csserror",   "cssparser",  null,   null,          ],  // CSS
-    [ "exception",  "jswarn",     null,   "jslog",       ],  // JS
-    [ "error",      "warn",       "info", "log",         ],  // Web Developer
-    [ null,         null,         null,   null,          ],  // Input
-    [ null,         null,         null,   null,          ],  // Output
-    [ "secerror",   "secwarn",    null,   null,          ],  // Security
-    [ "servererror", "serverwarn", "serverinfo", "serverlog",   ],  // Server Logging
+    [ "network", "netwarn", null, "networkinfo", ],
+    [ "csserror", "cssparser", null, null, ],
+    [ "exception", "jswarn", null, "jslog", ],
+    [ "error", "warn", "info", "log", ],
+    [ null, null, null, null, ],
+    [ null, null, null, null, ],
+    [ "secerror", "secwarn", null, null, ],
+    [ "servererror", "serverwarn", "serverinfo", "serverlog", ]
   ],
 
   // The fragment of a CSS class name that identifies each category.
@@ -115,7 +118,12 @@ const MAX_LONG_STRING_LENGTH = 200000;
 
 // Regular expression that matches the allowed CSS property names when using
 // the `window.console` API.
-const RE_ALLOWED_STYLES = /^(?:-moz-)?(?:background|border|box|clear|color|cursor|display|float|font|line|margin|padding|text|transition|outline|white-space|word|writing|(?:min-|max-)?width|(?:min-|max-)?height)/;
+const RE_ALLOWED_STYLES = new RegExp(["^(?:-moz-)?(?:background|border|box|",
+                                      "clear|color|cursor|display|float|font|",
+                                      "line|margin|padding|text|transition|",
+                                      "outline|white-space|word|writing|",
+                                      "(?:min-|max-)?width|(?:min-|max-)",
+                                      "?height)"]);
 
 // Regular expressions to search and replace with 'notallowed' in the styles
 // given to the `window.console` API methods.
@@ -147,8 +155,7 @@ const TABLE_COLUMN_MAX_ITEMS = 10;
  *          - outputMessage(category, methodOrNode[, methodArguments])
  *            TODO: this is needed temporarily, until bug 778766 is fixed.
  */
-function ConsoleOutput(owner)
-{
+function ConsoleOutput(owner) {
   this.owner = owner;
   this._onFlushOutputMessage = this._onFlushOutputMessage.bind(this);
 }
@@ -203,8 +210,7 @@ ConsoleOutput.prototype = {
    * @param string actorId
    *        The actor ID you want to release.
    */
-  _releaseObject: function(actorId)
-  {
+  _releaseObject: function(actorId) {
     this.owner._releaseObject(actorId);
   },
 
@@ -215,8 +221,7 @@ ConsoleOutput.prototype = {
    *        Any number of Message objects.
    * @return this
    */
-  addMessage: function(...args)
-  {
+  addMessage: function(...args) {
     for (let msg of args) {
       msg.init(this);
       this.owner.outputMessage(msg._categoryCompat, this._onFlushOutputMessage,
@@ -239,8 +244,7 @@ ConsoleOutput.prototype = {
    * @return DOMElement
    *         The message DOM element that can be added to the console output.
    */
-  _onFlushOutputMessage: function(message)
-  {
+  _onFlushOutputMessage: function(message) {
     return message.render().element;
   },
 
@@ -254,8 +258,7 @@ ConsoleOutput.prototype = {
    * @return array
    *         Array of DOM elements for each message that is currently selected.
    */
-  getSelectedMessages: function(limit)
-  {
+  getSelectedMessages: function(limit) {
     let selection = this.window.getSelection();
     if (selection.isCollapsed) {
       return [];
@@ -300,8 +303,7 @@ ConsoleOutput.prototype = {
    * @return DOMElement|null
    *         The DOM element of the message, if any.
    */
-  getMessageForElement: function(elem)
-  {
+  getMessageForElement: function(elem) {
     while (elem && elem.parentNode) {
       if (elem.classList && elem.classList.contains("message")) {
         return elem;
@@ -314,8 +316,7 @@ ConsoleOutput.prototype = {
   /**
    * Select all messages.
    */
-  selectAllMessages: function()
-  {
+  selectAllMessages: function() {
     let selection = this.window.getSelection();
     selection.removeAllRanges();
     let range = this.document.createRange();
@@ -329,8 +330,7 @@ ConsoleOutput.prototype = {
    * @param DOMElement elem
    *        The message element to select.
    */
-  selectMessage: function(elem)
-  {
+  selectMessage: function(elem) {
     let selection = this.window.getSelection();
     selection.removeAllRanges();
     let range = this.document.createRange();
@@ -342,12 +342,11 @@ ConsoleOutput.prototype = {
    * Open an URL in a new tab.
    * @see WebConsole.openLink() in hudservice.js
    */
-  openLink: function()
-  {
+  openLink: function() {
     this.owner.owner.openLink.apply(this.owner.owner, arguments);
   },
 
-  openLocationInDebugger: function ({url, line}) {
+  openLocationInDebugger: function({url, line}) {
     return this.owner.owner.viewSourceInDebugger(url, line);
   },
 
@@ -355,20 +354,18 @@ ConsoleOutput.prototype = {
    * Open the variables view to inspect an object actor.
    * @see JSTerm.openVariablesView() in webconsole.js
    */
-  openVariablesView: function()
-  {
+  openVariablesView: function() {
     this.owner.jsterm.openVariablesView.apply(this.owner.jsterm, arguments);
   },
 
   /**
    * Destroy this ConsoleOutput instance.
    */
-  destroy: function()
-  {
+  destroy: function() {
     this._dummyElement = null;
     this.owner = null;
   },
-}; // ConsoleOutput.prototype
+};
 
 /**
  * Message objects container.
@@ -382,8 +379,7 @@ var Messages = {};
  *
  * @constructor
  */
-Messages.BaseMessage = function()
-{
+Messages.BaseMessage = function() {
   this.widgets = new Set();
   this._onClickAnchor = this._onClickAnchor.bind(this);
   this._repeatID = { uid: gSequenceId() };
@@ -468,8 +464,7 @@ Messages.BaseMessage.prototype = {
    *        Optional: a different message object that owns this instance.
    * @return this
    */
-  init: function(output, parent=null)
-  {
+  init: function(output, parent = null) {
     this.output = output;
     this.parent = parent;
     return this;
@@ -481,8 +476,7 @@ Messages.BaseMessage.prototype = {
    *
    * @return string
    */
-  getRepeatID: function()
-  {
+  getRepeatID: function() {
     return JSON.stringify(this._repeatID);
   },
 
@@ -491,8 +485,7 @@ Messages.BaseMessage.prototype = {
    * will point to the DOM element of this message.
    * @return this
    */
-  render: function()
-  {
+  render: function() {
     if (!this.element) {
       this.element = this._renderCompat();
     }
@@ -508,8 +501,7 @@ Messages.BaseMessage.prototype = {
    * @return Element
    *         The DOM element that wraps the message.
    */
-  _renderCompat: function()
-  {
+  _renderCompat: function() {
     let doc = this.output.document;
     let container = doc.createElementNS(XHTML_NS, "div");
     container.id = "console-msg-" + gSequenceId();
@@ -541,8 +533,7 @@ Messages.BaseMessage.prototype = {
    *        Optional click event handler. The default event handler is
    *        |this._onClickAnchor|.
    */
-  _addLinkCallback: function(element, callback = this._onClickAnchor)
-  {
+  _addLinkCallback: function(element, callback = this._onClickAnchor) {
     // This is going into the WebConsoleFrame object instance that owns
     // the ConsoleOutput object. The WebConsoleFrame owner is the WebConsole
     // object instance from hudservice.js.
@@ -559,21 +550,18 @@ Messages.BaseMessage.prototype = {
    * @param Event event
    *        The DOM event that invoked this function.
    */
-  _onClickAnchor: function(event)
-  {
+  _onClickAnchor: function(event) {
     this.output.openLink(event.target.href);
   },
 
-  destroy: function()
-  {
+  destroy: function() {
     // Destroy all widgets that have registered themselves in this.widgets
     for (let widget of this.widgets) {
       widget.destroy();
     }
     this.widgets.clear();
   }
-}; // Messages.BaseMessage.prototype
-
+};
 
 /**
  * The NavigationMarker is used to show a page load event.
@@ -586,8 +574,7 @@ Messages.BaseMessage.prototype = {
  *        The message date and time, milliseconds elapsed since 1 January 1970
  *        00:00:00 UTC.
  */
-Messages.NavigationMarker = function(response, timestamp)
-{
+Messages.NavigationMarker = function(response, timestamp) {
   Messages.BaseMessage.call(this);
 
   // Store the response packet received from the server. It might
@@ -598,64 +585,62 @@ Messages.NavigationMarker = function(response, timestamp)
   this.timestamp = timestamp;
 };
 
-Messages.NavigationMarker.prototype = Heritage.extend(Messages.BaseMessage.prototype,
-{
-  /**
-   * The address of the loading page.
-   * @private
-   * @type string
-   */
-  _url: null,
+Messages.NavigationMarker.prototype =
+  Heritage.extend(Messages.BaseMessage.prototype, {
+    /**
+     * The address of the loading page.
+     * @private
+     * @type string
+     */
+    _url: null,
 
-  /**
-   * Message timestamp.
-   *
-   * @type number
-   *       Milliseconds elapsed since 1 January 1970 00:00:00 UTC.
-   */
-  timestamp: 0,
+    /**
+     * Message timestamp.
+     *
+     * @type number
+     *       Milliseconds elapsed since 1 January 1970 00:00:00 UTC.
+     */
+    timestamp: 0,
 
-  _categoryCompat: COMPAT.CATEGORIES.NETWORK,
-  _severityCompat: COMPAT.SEVERITIES.LOG,
-  _categoryNameCompat: "network",
-  _severityNameCompat: "info",
-  _filterKeyCompat: "networkinfo",
+    _categoryCompat: COMPAT.CATEGORIES.NETWORK,
+    _severityCompat: COMPAT.SEVERITIES.LOG,
+    _categoryNameCompat: "network",
+    _severityNameCompat: "info",
+    _filterKeyCompat: "networkinfo",
 
-  /**
-   * Prepare the DOM element for this message.
-   * @return this
-   */
-  render: function()
-  {
-    if (this.element) {
+    /**
+     * Prepare the DOM element for this message.
+     * @return this
+     */
+    render: function() {
+      if (this.element) {
+        return this;
+      }
+
+      let url = this._url;
+      let pos = url.indexOf("?");
+      if (pos > -1) {
+        url = url.substr(0, pos);
+      }
+
+      let doc = this.output.document;
+      let urlnode = doc.createElementNS(XHTML_NS, "a");
+      urlnode.className = "url";
+      urlnode.textContent = url;
+      urlnode.title = this._url;
+      urlnode.href = this._url;
+      urlnode.draggable = false;
+      this._addLinkCallback(urlnode);
+
+      let render = Messages.BaseMessage.prototype.render.bind(this);
+      render().element.appendChild(urlnode);
+      this.element.classList.add("navigation-marker");
+      this.element.url = this._url;
+      this.element.appendChild(doc.createTextNode("\n"));
+
       return this;
-    }
-
-    let url = this._url;
-    let pos = url.indexOf("?");
-    if (pos > -1) {
-      url = url.substr(0, pos);
-    }
-
-    let doc = this.output.document;
-    let urlnode = doc.createElementNS(XHTML_NS, "a");
-    urlnode.className = "url";
-    urlnode.textContent = url;
-    urlnode.title = this._url;
-    urlnode.href = this._url;
-    urlnode.draggable = false;
-    this._addLinkCallback(urlnode);
-
-    let render = Messages.BaseMessage.prototype.render.bind(this);
-    render().element.appendChild(urlnode);
-    this.element.classList.add("navigation-marker");
-    this.element.url = this._url;
-    this.element.appendChild(doc.createTextNode("\n"));
-
-    return this;
-  },
-}); // Messages.NavigationMarker.prototype
-
+    },
+  });
 
 /**
  * The Simple message is used to show any basic message in the Web Console.
@@ -685,14 +670,13 @@ Messages.NavigationMarker.prototype = Heritage.extend(Messages.BaseMessage.proto
  *        - filterDuplicates: (boolean) true if you do want this message to be
  *        filtered as a potential duplicate message, false otherwise.
  */
-Messages.Simple = function(message, options = {})
-{
+Messages.Simple = function(message, options = {}) {
   Messages.BaseMessage.call(this);
 
   this.category = options.category;
   this.severity = options.severity;
   this.location = options.location;
-  this.stack    = options.stack;
+  this.stack = options.stack;
   this.timestamp = options.timestamp || Date.now();
   this.prefix = options.prefix;
   this.private = !!options.private;
@@ -706,8 +690,7 @@ Messages.Simple = function(message, options = {})
   this._onClickCollapsible = this._onClickCollapsible.bind(this);
 };
 
-Messages.Simple.prototype = Heritage.extend(Messages.BaseMessage.prototype,
-{
+Messages.Simple.prototype = Heritage.extend(Messages.BaseMessage.prototype, {
   /**
    * Message category.
    * @type string
@@ -816,8 +799,7 @@ Messages.Simple.prototype = Heritage.extend(Messages.BaseMessage.prototype,
            null;
   },
 
-  init: function()
-  {
+  init: function() {
     Messages.BaseMessage.prototype.init.apply(this, arguments);
     this._groupDepthCompat = this.output.owner.groupDepth;
     this._initRepeatID();
@@ -835,11 +817,11 @@ Messages.Simple.prototype = Heritage.extend(Messages.BaseMessage.prototype,
    * @type boolean
    */
   get collapsed() {
-    return this.collapsible && this.element && !this.element.hasAttribute("open");
+    return this.collapsible && this.element &&
+             !this.element.hasAttribute("open");
   },
 
-  _initRepeatID: function()
-  {
+  _initRepeatID: function() {
     if (!this._filterDuplicates) {
       return;
     }
@@ -860,8 +842,7 @@ Messages.Simple.prototype = Heritage.extend(Messages.BaseMessage.prototype,
     rid.textContent = "";
   },
 
-  getRepeatID: function()
-  {
+  getRepeatID: function() {
     // No point in returning a string that includes other properties when there
     // is a unique ID.
     if (this._repeatID.uid) {
@@ -871,8 +852,7 @@ Messages.Simple.prototype = Heritage.extend(Messages.BaseMessage.prototype,
     return JSON.stringify(this._repeatID);
   },
 
-  render: function()
-  {
+  render: function() {
     if (this.element) {
       return this;
     }
@@ -958,8 +938,7 @@ Messages.Simple.prototype = Heritage.extend(Messages.BaseMessage.prototype,
    * @private
    * @return Element
    */
-  _renderBody: function()
-  {
+  _renderBody: function() {
     let body = this.document.createElementNS(XHTML_NS, "span");
     body.className = "message-body-wrapper message-body devtools-monospace";
 
@@ -997,8 +976,7 @@ Messages.Simple.prototype = Heritage.extend(Messages.BaseMessage.prototype,
    * @private
    * @return Element
    */
-  _renderRepeatNode: function()
-  {
+  _renderRepeatNode: function() {
     if (!this._filterDuplicates) {
       return null;
     }
@@ -1016,8 +994,7 @@ Messages.Simple.prototype = Heritage.extend(Messages.BaseMessage.prototype,
    * @private
    * @return Element
    */
-  _renderLocation: function()
-  {
+  _renderLocation: function() {
     if (!this.location) {
       return null;
     }
@@ -1043,8 +1020,7 @@ Messages.Simple.prototype = Heritage.extend(Messages.BaseMessage.prototype,
    *        The DOM event object.
    * @see this.toggleDetails()
    */
-  _onClickCollapsible: function(ev)
-  {
+  _onClickCollapsible: function(ev) {
     ev.preventDefault();
     this.toggleDetails();
   },
@@ -1052,8 +1028,7 @@ Messages.Simple.prototype = Heritage.extend(Messages.BaseMessage.prototype,
   /**
    * Expand/collapse message details.
    */
-  toggleDetails: function()
-  {
+  toggleDetails: function() {
     let twisty = this.element.querySelector(".theme-twisty");
     if (this.element.hasAttribute("open")) {
       this.element.removeAttribute("open");
@@ -1063,8 +1038,7 @@ Messages.Simple.prototype = Heritage.extend(Messages.BaseMessage.prototype,
       twisty.setAttribute("open", true);
     }
   },
-}); // Messages.Simple.prototype
-
+});
 
 /**
  * The Extended message.
@@ -1080,8 +1054,7 @@ Messages.Simple.prototype = Heritage.extend(Messages.BaseMessage.prototype,
  *        - quoteStrings: boolean that tells if you want strings to be wrapped
  *        in quotes or not.
  */
-Messages.Extended = function(messagePieces, options = {})
-{
+Messages.Extended = function(messagePieces, options = {}) {
   Messages.Simple.call(this, null, options);
 
   this._messagePieces = messagePieces;
@@ -1092,11 +1065,12 @@ Messages.Extended = function(messagePieces, options = {})
 
   this._repeatID.quoteStrings = this._quoteStrings;
   this._repeatID.messagePieces = JSON.stringify(messagePieces);
-  this._repeatID.actors = new Set(); // using a set to avoid duplicates
+
+  // using a set to avoid duplicates
+  this._repeatID.actors = new Set();
 };
 
-Messages.Extended.prototype = Heritage.extend(Messages.Simple.prototype,
-{
+Messages.Extended.prototype = Heritage.extend(Messages.Simple.prototype, {
   /**
    * The message pieces displayed by this message instance.
    * @private
@@ -1111,8 +1085,7 @@ Messages.Extended.prototype = Heritage.extend(Messages.Simple.prototype,
    */
   _quoteStrings: true,
 
-  getRepeatID: function()
-  {
+  getRepeatID: function() {
     if (this._repeatID.uid) {
       return JSON.stringify({ uid: this._repeatID.uid });
     }
@@ -1125,8 +1098,7 @@ Messages.Extended.prototype = Heritage.extend(Messages.Simple.prototype,
     return result;
   },
 
-  render: function()
-  {
+  render: function() {
     let result = this.document.createDocumentFragment();
 
     for (let i = 0; i < this._messagePieces.length; i++) {
@@ -1150,7 +1122,9 @@ Messages.Extended.prototype = Heritage.extend(Messages.Simple.prototype,
    * @private
    * @return Element
    */
-  _renderBodyPieceSeparator: function() { return null; },
+  _renderBodyPieceSeparator: function() {
+    return null;
+  },
 
   /**
    * Render one piece/element of the message array.
@@ -1161,8 +1135,7 @@ Messages.Extended.prototype = Heritage.extend(Messages.Simple.prototype,
    *        DOM node or a function to invoke.
    * @return Element
    */
-  _renderBodyPiece: function(piece, options = {})
-  {
+  _renderBodyPiece: function(piece, options = {}) {
     if (piece instanceof Ci.nsIDOMNode) {
       return piece;
     }
@@ -1193,8 +1166,7 @@ Messages.Extended.prototype = Heritage.extend(Messages.Simple.prototype,
    * @return DOMElement
    *         The DOM element that displays the given grip.
    */
-  _renderValueGrip: function(grip, options = {})
-  {
+  _renderValueGrip: function(grip, options = {}) {
     let isPrimitive = VariablesView.isPrimitive({ value: grip });
     let isActorGrip = WebConsoleUtils.isActorGrip(grip);
     let noStringQuotes = !this._quoteStrings;
@@ -1216,13 +1188,16 @@ Messages.Extended.prototype = Heritage.extend(Messages.Simple.prototype,
 
     let unshortenedGrip = grip;
     if (options.shorten) {
-      grip = this.shortenValueGrip(grip)
+      grip = this.shortenValueGrip(grip);
     }
 
     let result = this.document.createElementNS(XHTML_NS, "span");
     if (isPrimitive) {
-      if (Widgets.URLString.prototype.containsURL.call(Widgets.URLString.prototype, grip)) {
-        let widget = new Widgets.URLString(this, grip, unshortenedGrip).render();
+      if (Widgets.URLString.prototype.containsURL.call(
+            Widgets.URLString.prototype,
+            grip)) {
+        let widget = new Widgets.URLString(this, grip, unshortenedGrip)
+                       .render();
         return widget.element;
       }
 
@@ -1252,13 +1227,12 @@ Messages.Extended.prototype = Heritage.extend(Messages.Simple.prototype,
    *        - A shortened string, if original grip was of string type.
    *        - The unmodified input grip, if it wasn't of string type.
    */
-  shortenValueGrip: function(grip)
-  {
+  shortenValueGrip: function(grip) {
     let shortVal = grip;
-    if (typeof(grip)=="string") {
-      shortVal = grip.replace(/(\r\n|\n|\r)/gm," ");
+    if (typeof (grip) == "string") {
+      shortVal = grip.replace(/(\r\n|\n|\r)/gm, " ");
       if (shortVal.length > MAX_STRING_GRIP_LENGTH) {
-        shortVal = shortVal.substring(0,MAX_STRING_GRIP_LENGTH - 1) + ELLIPSIS;
+        shortVal = shortVal.substring(0, MAX_STRING_GRIP_LENGTH - 1) + ELLIPSIS;
       }
     }
 
@@ -1273,8 +1247,7 @@ Messages.Extended.prototype = Heritage.extend(Messages.Simple.prototype,
    * @return string
    *         The class name for the grip.
    */
-  getClassNameForValueGrip: function(grip)
-  {
+  getClassNameForValueGrip: function(grip) {
     let map = {
       "number": "cm-number",
       "longstring": "console-string",
@@ -1311,27 +1284,24 @@ Messages.Extended.prototype = Heritage.extend(Messages.Simple.prototype,
    * @return DOMElement
    *         The DOM element that displays the object actor.
    */
-  _renderObjectActor: function(objectActor, options = {})
-  {
-    let widget = Widgets.ObjectRenderers.byClass[objectActor.class];
+  _renderObjectActor: function(objectActor, options = {}) {
+    let Widget = Widgets.ObjectRenderers.byClass[objectActor.class];
 
     let { preview } = objectActor;
-    if ((!widget || (widget.canRender && !widget.canRender(objectActor)))
+    if ((!Widget || (Widget.canRender && !Widget.canRender(objectActor)))
         && preview
         && preview.kind) {
-      widget = Widgets.ObjectRenderers.byKind[preview.kind];
+      Widget = Widgets.ObjectRenderers.byKind[preview.kind];
     }
 
-    if (!widget || (widget.canRender && !widget.canRender(objectActor))) {
-      widget = Widgets.JSObject;
+    if (!Widget || (Widget.canRender && !Widget.canRender(objectActor))) {
+      Widget = Widgets.JSObject;
     }
 
-    let instance = new widget(this, objectActor, options).render();
+    let instance = new Widget(this, objectActor, options).render();
     return instance.element;
   },
-}); // Messages.Extended.prototype
-
-
+});
 
 /**
  * The JavaScriptEvalOutput message.
@@ -1345,15 +1315,15 @@ Messages.Extended.prototype = Heritage.extend(Messages.Simple.prototype,
  * @param string [errorDocLink]
  * Optional error doc URL to link to.
  */
-Messages.JavaScriptEvalOutput = function(evalResponse, errorMessage, errorDocLink)
-{
+Messages.JavaScriptEvalOutput = function(evalResponse, errorMessage,
+                                         errorDocLink) {
   let severity = "log", msg, quoteStrings = true;
 
   // Store also the response packet from the back end. It might
   // be useful to extensions customizing the console output.
   this.response = evalResponse;
 
-  if (typeof(errorMessage) !== "undefined") {
+  if (typeof (errorMessage) !== "undefined") {
     severity = "error";
     msg = errorMessage;
     quoteStrings = false;
@@ -1387,8 +1357,7 @@ Messages.JavaScriptEvalOutput.prototype = Messages.Extended.prototype;
  * @param object packet
  *        The Console API call packet received from the server.
  */
-Messages.ConsoleGeneric = function(packet)
-{
+Messages.ConsoleGeneric = function(packet) {
   let options = {
     className: "cm-s-mozilla",
     timestamp: packet.timeStamp,
@@ -1410,7 +1379,7 @@ Messages.ConsoleGeneric = function(packet)
       if (!label) {
         label = l10n.getStr("noCounterLabel");
       }
-      Messages.Extended.call(this, [label+ ": " + counter.count], options);
+      Messages.Extended.call(this, [label + ": " + counter.count], options);
       break;
     }
     default:
@@ -1424,155 +1393,150 @@ Messages.ConsoleGeneric = function(packet)
   this._styles = packet.styles || [];
 };
 
-Messages.ConsoleGeneric.prototype = Heritage.extend(Messages.Extended.prototype,
-{
-  _styles: null,
+Messages.ConsoleGeneric.prototype =
+  Heritage.extend(Messages.Extended.prototype, {
+    _styles: null,
 
-  _renderBodyPieceSeparator: function()
-  {
-    return this.document.createTextNode(" ");
-  },
+    _renderBodyPieceSeparator: function() {
+      return this.document.createTextNode(" ");
+    },
 
-  render: function()
-  {
-    let msg = this.document.createElementNS(XHTML_NS, "span");
-    msg.className = "message-body devtools-monospace";
+    render: function() {
+      let msg = this.document.createElementNS(XHTML_NS, "span");
+      msg.className = "message-body devtools-monospace";
 
-    this._renderBodyPieces(msg);
+      this._renderBodyPieces(msg);
 
-    let repeatNode = Messages.Simple.prototype._renderRepeatNode.call(this);
-    let location = Messages.Simple.prototype._renderLocation.call(this);
-    if (location) {
-      location.target = "jsdebugger";
-    }
-
-    let flex = this.document.createElementNS(XHTML_NS, "span");
-    flex.className = "message-flex-body";
-
-    flex.appendChild(msg);
-
-    if (repeatNode) {
-      flex.appendChild(repeatNode);
-    }
-    if (location) {
-      flex.appendChild(location);
-    }
-
-    let result = this.document.createDocumentFragment();
-    result.appendChild(flex);
-
-    this._message = result;
-    this._stacktrace = null;
-
-    Messages.Simple.prototype.render.call(this);
-
-    return this;
-  },
-
-  _renderBody: function()
-  {
-    let body = Messages.Simple.prototype._renderBody.apply(this, arguments);
-    body.classList.remove("devtools-monospace", "message-body");
-    return body;
-  },
-
-  _renderBodyPieces: function(container)
-  {
-    let lastStyle = null;
-    let stylePieces = this._styles.length > 0 ? this._styles.length : 1;
-
-    for (let i = 0; i < this._messagePieces.length; i++) {
-      // Pieces with an associated style definition come from "%c" formatting.
-      // For body pieces beyond that, add a separator before each one.
-      if (i >= stylePieces) {
-        container.appendChild(this._renderBodyPieceSeparator());
+      let repeatNode = Messages.Simple.prototype._renderRepeatNode.call(this);
+      let location = Messages.Simple.prototype._renderLocation.call(this);
+      if (location) {
+        location.target = "jsdebugger";
       }
 
-      let piece = this._messagePieces[i];
-      let style = this._styles[i];
+      let flex = this.document.createElementNS(XHTML_NS, "span");
+      flex.className = "message-flex-body";
 
-      // No long string support.
-      lastStyle = (style && typeof style == "string") ?
-                  this.cleanupStyle(style) : null;
+      flex.appendChild(msg);
 
-      container.appendChild(this._renderBodyPiece(piece, lastStyle));
-    }
-
-    this._messagePieces = null;
-    this._styles = null;
-  },
-
-  _renderBodyPiece: function(piece, style)
-  {
-    // Skip quotes for top-level strings.
-    let options = { noStringQuotes: true };
-    let elem = Messages.Extended.prototype._renderBodyPiece.call(this, piece, options);
-    let result = elem;
-
-    if (style) {
-      if (elem.nodeType == Ci.nsIDOMNode.ELEMENT_NODE) {
-        elem.style = style;
-      } else {
-        let span = this.document.createElementNS(XHTML_NS, "span");
-        span.style = style;
-        span.appendChild(elem);
-        result = span;
+      if (repeatNode) {
+        flex.appendChild(repeatNode);
       }
-    }
-
-    return result;
-  },
-
-  // no-op for the message location and .repeats elements.
-  // |this.render()| handles customized message output.
-  _renderLocation: function() { },
-  _renderRepeatNode: function() { },
-
-  /**
-   * Given a style attribute value, return a cleaned up version of the string
-   * such that:
-   *
-   * - no external URL is allowed to load. See RE_CLEANUP_STYLES.
-   * - only some of the properties are allowed, based on a whitelist. See
-   *   RE_ALLOWED_STYLES.
-   *
-   * @param string style
-   *        The style string to cleanup.
-   * @return string
-   *         The style value after cleanup.
-   */
-  cleanupStyle: function(style)
-  {
-    for (let r of RE_CLEANUP_STYLES) {
-      style = style.replace(r, "notallowed");
-    }
-
-    let dummy = this.output._dummyElement;
-    if (!dummy) {
-      dummy = this.output._dummyElement =
-        this.document.createElementNS(XHTML_NS, "div");
-    }
-    dummy.style = style;
-
-    let toRemove = [];
-    for (let i = 0; i < dummy.style.length; i++) {
-      let prop = dummy.style[i];
-      if (!RE_ALLOWED_STYLES.test(prop)) {
-        toRemove.push(prop);
+      if (location) {
+        flex.appendChild(location);
       }
-    }
 
-    for (let prop of toRemove) {
-      dummy.style.removeProperty(prop);
-    }
+      let result = this.document.createDocumentFragment();
+      result.appendChild(flex);
 
-    style = dummy.style.cssText;
+      this._message = result;
+      this._stacktrace = null;
 
-    dummy.style = "";
+      Messages.Simple.prototype.render.call(this);
 
-    return style;
-  },
-}); // Messages.ConsoleGeneric.prototype
+      return this;
+    },
+
+    _renderBody: function() {
+      let body = Messages.Simple.prototype._renderBody.apply(this, arguments);
+      body.classList.remove("devtools-monospace", "message-body");
+      return body;
+    },
+
+    _renderBodyPieces: function(container) {
+      let lastStyle = null;
+      let stylePieces = this._styles.length > 0 ? this._styles.length : 1;
+
+      for (let i = 0; i < this._messagePieces.length; i++) {
+        // Pieces with an associated style definition come from "%c" formatting.
+        // For body pieces beyond that, add a separator before each one.
+        if (i >= stylePieces) {
+          container.appendChild(this._renderBodyPieceSeparator());
+        }
+
+        let piece = this._messagePieces[i];
+        let style = this._styles[i];
+
+        // No long string support.
+        lastStyle = (style && typeof style == "string") ?
+                    this.cleanupStyle(style) : null;
+
+        container.appendChild(this._renderBodyPiece(piece, lastStyle));
+      }
+
+      this._messagePieces = null;
+      this._styles = null;
+    },
+
+    _renderBodyPiece: function(piece, style) {
+      // Skip quotes for top-level strings.
+      let options = { noStringQuotes: true };
+      let elem = Messages.Extended.prototype._renderBodyPiece.call(this, piece,
+                                                                   options);
+      let result = elem;
+
+      if (style) {
+        if (elem.nodeType == Ci.nsIDOMNode.ELEMENT_NODE) {
+          elem.style = style;
+        } else {
+          let span = this.document.createElementNS(XHTML_NS, "span");
+          span.style = style;
+          span.appendChild(elem);
+          result = span;
+        }
+      }
+
+      return result;
+    },
+
+    // no-op for the message location and .repeats elements.
+    // |this.render()| handles customized message output.
+    _renderLocation: function() { },
+    _renderRepeatNode: function() { },
+
+    /**
+     * Given a style attribute value, return a cleaned up version of the string
+     * such that:
+     *
+     * - no external URL is allowed to load. See RE_CLEANUP_STYLES.
+     * - only some of the properties are allowed, based on a whitelist. See
+     *   RE_ALLOWED_STYLES.
+     *
+     * @param string style
+     *        The style string to cleanup.
+     * @return string
+     *         The style value after cleanup.
+     */
+    cleanupStyle: function(style) {
+      for (let r of RE_CLEANUP_STYLES) {
+        style = style.replace(r, "notallowed");
+      }
+
+      let dummy = this.output._dummyElement;
+      if (!dummy) {
+        dummy = this.output._dummyElement =
+          this.document.createElementNS(XHTML_NS, "div");
+      }
+      dummy.style = style;
+
+      let toRemove = [];
+      for (let i = 0; i < dummy.style.length; i++) {
+        let prop = dummy.style[i];
+        if (!RE_ALLOWED_STYLES.test(prop)) {
+          toRemove.push(prop);
+        }
+      }
+
+      for (let prop of toRemove) {
+        dummy.style.removeProperty(prop);
+      }
+
+      style = dummy.style.cssText;
+
+      dummy.style = "";
+
+      return style;
+    },
+  });
 
 /**
  * The ConsoleTrace message is used for console.trace() calls.
@@ -1582,8 +1546,7 @@ Messages.ConsoleGeneric.prototype = Heritage.extend(Messages.Extended.prototype,
  * @param object packet
  *        The Console API call packet received from the server.
  */
-Messages.ConsoleTrace = function(packet)
-{
+Messages.ConsoleTrace = function(packet) {
   let options = {
     className: "cm-s-mozilla",
     timestamp: packet.timeStamp,
@@ -1605,8 +1568,7 @@ Messages.ConsoleTrace = function(packet)
   this._arguments = packet.arguments;
 };
 
-Messages.ConsoleTrace.prototype = Heritage.extend(Messages.Simple.prototype,
-{
+Messages.ConsoleTrace.prototype = Heritage.extend(Messages.Simple.prototype, {
   /**
    * Holds the stackframes received from the server.
    *
@@ -1625,8 +1587,7 @@ Messages.ConsoleTrace.prototype = Heritage.extend(Messages.Simple.prototype,
    */
   _arguments: null,
 
-  init: function()
-  {
+  init: function() {
     let result = Messages.Simple.prototype.init.apply(this, arguments);
 
     // We ignore console.trace() arguments. Release object actors.
@@ -1642,8 +1603,7 @@ Messages.ConsoleTrace.prototype = Heritage.extend(Messages.Simple.prototype,
     return result;
   },
 
-  render: function()
-  {
+  render: function() {
     Messages.Simple.prototype.render.apply(this, arguments);
     this.element.setAttribute("open", true);
     return this;
@@ -1655,8 +1615,7 @@ Messages.ConsoleTrace.prototype = Heritage.extend(Messages.Simple.prototype,
    * @private
    * @return DOMElement
    */
-  _renderStack: function()
-  {
+  _renderStack: function() {
     let cmvar = this.document.createElementNS(XHTML_NS, "span");
     cmvar.className = "cm-variable";
     cmvar.textContent = "console";
@@ -1698,8 +1657,7 @@ Messages.ConsoleTrace.prototype = Heritage.extend(Messages.Simple.prototype,
     return frag;
   },
 
-  _renderBody: function()
-  {
+  _renderBody: function() {
     let body = Messages.Simple.prototype._renderBody.apply(this, arguments);
     body.classList.remove("devtools-monospace", "message-body");
     return body;
@@ -1709,7 +1667,7 @@ Messages.ConsoleTrace.prototype = Heritage.extend(Messages.Simple.prototype,
   // |this._renderStack| handles customized message output.
   _renderLocation: function() { },
   _renderRepeatNode: function() { },
-}); // Messages.ConsoleTrace.prototype
+});
 
 /**
  * The ConsoleTable message is used for console.table() calls.
@@ -1719,8 +1677,7 @@ Messages.ConsoleTrace.prototype = Heritage.extend(Messages.Simple.prototype,
  * @param object packet
  *        The Console API call packet received from the server.
  */
-Messages.ConsoleTable = function(packet)
-{
+Messages.ConsoleTable = function(packet) {
   let options = {
     className: "cm-s-mozilla",
     timestamp: packet.timeStamp,
@@ -1742,8 +1699,7 @@ Messages.ConsoleTable = function(packet)
   this._arguments = packet.arguments;
 };
 
-Messages.ConsoleTable.prototype = Heritage.extend(Messages.Extended.prototype,
-{
+Messages.ConsoleTable.prototype = Heritage.extend(Messages.Extended.prototype, {
   /**
    * Holds the arguments the content script passed to the console.table()
    * method.
@@ -1779,8 +1735,7 @@ Messages.ConsoleTable.prototype = Heritage.extend(Messages.Extended.prototype,
    */
   _populatePromise: null,
 
-  init: function()
-  {
+  init: function() {
     let result = Messages.Extended.prototype.init.apply(this, arguments);
     this._data = [];
     this._columns = {};
@@ -1799,8 +1754,7 @@ Messages.ConsoleTable.prototype = Heritage.extend(Messages.Extended.prototype,
    *        Either a string or array containing the names for the columns in
    *        the output table.
    */
-  _setColumns: function(columns)
-  {
+  _setColumns: function(columns) {
     if (columns.class == "Array") {
       let items = columns.preview.items;
 
@@ -1822,27 +1776,26 @@ Messages.ConsoleTable.prototype = Heritage.extend(Messages.Extended.prototype,
    *         Returns a promise that resolves when the table data is ready or
    *         null if the arguments are invalid.
    */
-  _populateTableData: function()
-  {
+  _populateTableData: function() {
     let deferred = promise.defer();
 
     if (this._arguments.length <= 0) {
-      return;
+      return deferred.reject();
     }
 
     let data = this._arguments[0];
     if (data.class != "Array" && data.class != "Object" &&
         data.class != "Map" && data.class != "Set" &&
         data.class != "WeakMap" && data.class != "WeakSet") {
-      return;
+      return deferred.reject();
     }
 
     let hasColumnsArg = false;
     if (this._arguments.length > 1) {
       if (data.class == "Object" || data.class == "Array") {
-        this._columns["_index"] = l10n.getStr("table.index");
+        this._columns._index = l10n.getStr("table.index");
       } else {
-        this._columns["_index"] = l10n.getStr("table.iterationIndex");
+        this._columns._index = l10n.getStr("table.iterationIndex");
       }
 
       this._setColumns(this._arguments[1]);
@@ -1854,8 +1807,8 @@ Messages.ConsoleTable.prototype = Heritage.extend(Messages.Extended.prototype,
       // the table data and columns.
       this.client = new ObjectClient(this.output.owner.jsterm.hud.proxy.client,
           data);
-      this.client.getPrototypeAndProperties(aResponse => {
-        let {ownProperties} = aResponse;
+      this.client.getPrototypeAndProperties(response => {
+        let {ownProperties} = response;
         let rowCount = 0;
         let columnCount = 0;
 
@@ -1867,12 +1820,12 @@ Messages.ConsoleTable.prototype = Heritage.extend(Messages.Extended.prototype,
           }
 
           if (!hasColumnsArg) {
-            this._columns["_index"] = l10n.getStr("table.index");
+            this._columns._index = l10n.getStr("table.index");
           }
 
           if (data.class == "Array") {
-            if (index == parseInt(index)) {
-              index = parseInt(index);
+            if (index == parseInt(index, 10)) {
+              index = parseInt(index, 10);
             }
           }
 
@@ -1897,10 +1850,10 @@ Messages.ConsoleTable.prototype = Heritage.extend(Messages.Extended.prototype,
             }
           } else {
             // Display the value for any non-object data input.
-            item["_value"] = this._renderValueGrip(property, { concise: true });
+            item._value = this._renderValueGrip(property, { concise: true });
 
             if (!hasColumnsArg && !("_value" in this._columns)) {
-              this._columns["_value"] = l10n.getStr("table.value");
+              this._columns._value = l10n.getStr("table.value");
             }
           }
 
@@ -1917,9 +1870,9 @@ Messages.ConsoleTable.prototype = Heritage.extend(Messages.Extended.prototype,
       let entries = data.preview.entries;
 
       if (!hasColumnsArg) {
-        this._columns["_index"] = l10n.getStr("table.iterationIndex");
-        this._columns["_key"] = l10n.getStr("table.key");
-        this._columns["_value"] = l10n.getStr("table.value");
+        this._columns._index = l10n.getStr("table.iterationIndex");
+        this._columns._key = l10n.getStr("table.key");
+        this._columns._value = l10n.getStr("table.value");
       }
 
       let rowCount = 0;
@@ -1942,14 +1895,14 @@ Messages.ConsoleTable.prototype = Heritage.extend(Messages.Extended.prototype,
       let entries = data.preview.items;
 
       if (!hasColumnsArg) {
-        this._columns["_index"] = l10n.getStr("table.iterationIndex");
-        this._columns["_value"] = l10n.getStr("table.value");
+        this._columns._index = l10n.getStr("table.iterationIndex");
+        this._columns._value = l10n.getStr("table.value");
       }
 
       let rowCount = 0;
       for (let entry of entries) {
         let item = {
-          _index : rowCount,
+          _index: rowCount,
           _value: this._renderValueGrip(entry, { concise: true })
         };
 
@@ -1966,8 +1919,7 @@ Messages.ConsoleTable.prototype = Heritage.extend(Messages.Extended.prototype,
     return deferred.promise;
   },
 
-  render: function()
-  {
+  render: function() {
     Messages.Extended.prototype.render.apply(this, arguments);
     this.element.setAttribute("open", true);
     return this;
@@ -1979,8 +1931,7 @@ Messages.ConsoleTable.prototype = Heritage.extend(Messages.Extended.prototype,
    * @private
    * @return DOMElement
    */
-  _renderTable: function()
-  {
+  _renderTable: function() {
     let cmvar = this.document.createElementNS(XHTML_NS, "span");
     cmvar.className = "cm-variable";
     cmvar.textContent = "console";
@@ -2019,7 +1970,8 @@ Messages.ConsoleTable.prototype = Heritage.extend(Messages.Extended.prototype,
     if (this._populatePromise) {
       this._populatePromise.then(() => {
         if (this._data.length > 0) {
-          let widget = new Widgets.Table(this, this._data, this._columns).render();
+          let widgetTable = new Widgets.Table(this, this._data, this._columns);
+          let widget = widgetTable.render();
           result.appendChild(widget.element);
         }
 
@@ -2041,8 +1993,7 @@ Messages.ConsoleTable.prototype = Heritage.extend(Messages.Extended.prototype,
     return result;
   },
 
-  _renderBody: function()
-  {
+  _renderBody: function() {
     let body = Messages.Simple.prototype._renderBody.apply(this, arguments);
     body.classList.remove("devtools-monospace", "message-body");
     return body;
@@ -2052,7 +2003,7 @@ Messages.ConsoleTable.prototype = Heritage.extend(Messages.Extended.prototype,
   // |this._renderTable| handles customized message output.
   _renderLocation: function() { },
   _renderRepeatNode: function() { },
-}); // Messages.ConsoleTable.prototype
+});
 
 var Widgets = {};
 
@@ -2063,8 +2014,7 @@ var Widgets = {};
  * @param object message
  *        The owning message.
  */
-Widgets.BaseWidget = function(message)
-{
+Widgets.BaseWidget = function(message) {
   this.message = message;
 };
 
@@ -2137,8 +2087,7 @@ Widgets.BaseWidget.prototype = {
    * @return DOMElement
    *         The new DOM element.
    */
-  el: function(tagNameIdAndClasses)
-  {
+  el: function(tagNameIdAndClasses) {
     let attrs, text;
     if (typeof arguments[1] == "object") {
       attrs = arguments[1];
@@ -2179,34 +2128,31 @@ Widgets.BaseWidget.prototype = {
  * @param number timestamp
  *        The UNIX timestamp to display.
  */
-Widgets.MessageTimestamp = function(message, timestamp)
-{
+Widgets.MessageTimestamp = function(message, timestamp) {
   Widgets.BaseWidget.call(this, message);
   this.timestamp = timestamp;
 };
 
-Widgets.MessageTimestamp.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
-{
-  /**
-   * The UNIX timestamp.
-   * @type number
-   */
-  timestamp: 0,
+Widgets.MessageTimestamp.prototype =
+  Heritage.extend(Widgets.BaseWidget.prototype, {
+    /**
+     * The UNIX timestamp.
+     * @type number
+     */
+    timestamp: 0,
 
-  render: function()
-  {
-    if (this.element) {
+    render: function() {
+      if (this.element) {
+        return this;
+      }
+
+      this.element = this.document.createElementNS(XHTML_NS, "span");
+      this.element.className = "timestamp devtools-monospace";
+      this.element.textContent = l10n.timestampString(this.timestamp) + " ";
+
       return this;
-    }
-
-    this.element = this.document.createElementNS(XHTML_NS, "span");
-    this.element.className = "timestamp devtools-monospace";
-    this.element.textContent = l10n.timestampString(this.timestamp) + " ";
-
-    return this;
-  },
-}); // Widgets.MessageTimestamp.prototype
-
+    },
+  });
 
 /**
  * The URLString widget, for rendering strings where at least one token is a
@@ -2220,23 +2166,20 @@ Widgets.MessageTimestamp.prototype = Heritage.extend(Widgets.BaseWidget.prototyp
  * @param string unshortenedStr
  *        The unshortened form of the string, if it was shortened.
  */
-Widgets.URLString = function(message, str, unshortenedStr)
-{
+Widgets.URLString = function(message, str, unshortenedStr) {
   Widgets.BaseWidget.call(this, message);
   this.str = str;
   this.unshortenedStr = unshortenedStr;
 };
 
-Widgets.URLString.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
-{
+Widgets.URLString.prototype = Heritage.extend(Widgets.BaseWidget.prototype, {
   /**
    * The string to format, which contains at least one valid URL.
    * @type string
    */
   str: "",
 
-  render: function()
-  {
+  render: function() {
     if (this.element) {
       return this;
     }
@@ -2248,8 +2191,8 @@ Widgets.URLString.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
     });
     this.element.appendChild(this._renderText("\""));
 
-    // As we walk through the tokens of the source string, we make sure to preserve
-    // the original whitespace that separated the tokens.
+    // As we walk through the tokens of the source string, we make sure to
+    // preserve the original whitespace that separated the tokens.
     let tokens = this.str.split(/\s+/);
     let textStart = 0;
     let tokenStart;
@@ -2261,16 +2204,21 @@ Widgets.URLString.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
         // The last URL in the string might be shortened.  If so, get the
         // real URL so the rendered link can point to it.
         if (i === tokens.length - 1 && this.unshortenedStr) {
-          unshortenedToken = this.unshortenedStr.slice(tokenStart).split(/\s+/, 1)[0];
+          unshortenedToken = this.unshortenedStr.slice(tokenStart)
+                               .split(/\s+/, 1)[0];
         }
-        this.element.appendChild(this._renderText(this.str.slice(textStart, tokenStart)));
+
+        let rendered = this._renderText(this.str.slice(textStart, tokenStart));
+
+        this.element.appendChild(rendered);
         textStart = tokenStart + token.length;
         this.element.appendChild(this._renderURL(token, unshortenedToken));
       }
     }
 
     // Clean up any non-URL text at the end of the source string.
-    this.element.appendChild(this._renderText(this.str.slice(textStart, this.str.length)));
+    let rendered = this._renderText(this.str.slice(textStart, this.str.length));
+    this.element.appendChild(rendered);
     this.element.appendChild(this._renderText("\""));
 
     return this;
@@ -2284,8 +2232,7 @@ Widgets.URLString.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
    * @return boolean
    *         Whether the grip is a string containing a URL.
    */
-  containsURL: function(grip)
-  {
+  containsURL: function(grip) {
     if (typeof grip != "string") {
       return false;
     }
@@ -2305,7 +2252,7 @@ Widgets.URLString.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
   _isURL: function(token) {
     try {
       let uri = URI.newURI(token, null, null);
-      let url = uri.QueryInterface(Ci.nsIURL);
+      uri.QueryInterface(Ci.nsIURL);
       return true;
     } catch (e) {
       return false;
@@ -2322,8 +2269,7 @@ Widgets.URLString.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
    * @return DOMElement
    *         An element containing the rendered string.
    */
-  _renderURL: function(url, fullUrl)
-  {
+  _renderURL: function(url, fullUrl) {
     let unshortened = fullUrl || url;
     let result = this.el("a", {
       class: "url",
@@ -2338,7 +2284,7 @@ Widgets.URLString.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
   _renderText: function(text) {
     return this.el("span", text);
   },
-}); // Widgets.URLString.prototype
+});
 
 /**
  * Widget used for displaying ObjectActors that have no specialised renderers.
@@ -2353,24 +2299,21 @@ Widgets.URLString.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
  *        Messages.Extended.prototype._renderValueGrip for the available
  *        options.
  */
-Widgets.JSObject = function(message, objectActor, options = {})
-{
+Widgets.JSObject = function(message, objectActor, options = {}) {
   Widgets.BaseWidget.call(this, message);
   this.objectActor = objectActor;
   this.options = options;
   this._onClick = this._onClick.bind(this);
 };
 
-Widgets.JSObject.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
-{
+Widgets.JSObject.prototype = Heritage.extend(Widgets.BaseWidget.prototype, {
   /**
    * The ObjectActor displayed by the widget.
    * @type object
    */
   objectActor: null,
 
-  render: function()
-  {
+  render: function() {
     if (!this.element) {
       this._render();
     }
@@ -2378,8 +2321,7 @@ Widgets.JSObject.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
     return this;
   },
 
-  _render: function()
-  {
+  _render: function() {
     let str = VariablesView.getString(this.objectActor, this.options);
     let className = this.message.getClassNameForValueGrip(this.objectActor);
     if (!className && this.objectActor.class == "Object") {
@@ -2392,8 +2334,7 @@ Widgets.JSObject.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
   /**
    * Render a concise representation of an object.
    */
-  _renderConciseObject: function()
-  {
+  _renderConciseObject: function() {
     this.element = this._anchor(this.objectActor.class,
                                 { className: "cm-variable" });
   },
@@ -2401,8 +2342,7 @@ Widgets.JSObject.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
   /**
    * Render the `<class> { ` prefix of an object.
    */
-  _renderObjectPrefix: function()
-  {
+  _renderObjectPrefix: function() {
     let { kind } = this.objectActor.preview;
     this.element = this.el("span.kind-" + kind);
     this._anchor(this.objectActor.class, { className: "cm-variable" });
@@ -2412,8 +2352,7 @@ Widgets.JSObject.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
   /**
    * Render the ` }` suffix of an object.
    */
-  _renderObjectSuffix: function()
-  {
+  _renderObjectSuffix: function() {
     this._text(" }");
   },
 
@@ -2433,8 +2372,8 @@ Widgets.JSObject.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
    *        Add the value as is, don't treat it as a grip and pass it to
    *        `_renderValueGrip`.
    */
-  _renderObjectProperty: function(key, value, container, needsComma, valueIsText = false)
-  {
+  _renderObjectProperty: function(key, value, container, needsComma,
+                                  valueIsText = false) {
     if (needsComma) {
       this._text(", ");
     }
@@ -2445,7 +2384,11 @@ Widgets.JSObject.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
     if (valueIsText) {
       this._text(value);
     } else {
-      let valueElem = this.message._renderValueGrip(value, { concise: true, shorten: true });
+      let valueElem = this.message._renderValueGrip(value, {
+        concise: true,
+        shorten: true
+      });
+
       container.appendChild(valueElem);
     }
   },
@@ -2459,27 +2402,31 @@ Widgets.JSObject.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
    *        True if there was another property before this one and we need to
    *        separate them with a comma.
    */
-  _renderObjectProperties: function(container, needsComma)
-  {
+  _renderObjectProperties: function(container, needsComma) {
     let { preview } = this.objectActor;
     let { ownProperties, safeGetterValues } = preview;
 
     let shown = 0;
 
     let getValue = desc => {
+      let value = "";
+
       if (desc.get) {
-        return "Getter";
+        value = "Getter";
       } else if (desc.set) {
-        return "Setter";
+        value = "Setter";
       } else {
-        return desc.value;
+        value = desc.value;
       }
+
+      return value;
     };
 
     for (let key of Object.keys(ownProperties || {})) {
       this._renderObjectProperty(key, getValue(ownProperties[key]), container,
                                  shown > 0 || needsComma,
-                                 ownProperties[key].get || ownProperties[key].set);
+                                 ownProperties[key].get ||
+                                 ownProperties[key].set);
       shown++;
     }
 
@@ -2521,8 +2468,7 @@ Widgets.JSObject.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
    * @return DOMElement
    *         The DOM element of the new anchor.
    */
-  _anchor: function(text, options = {})
-  {
+  _anchor: function(text, options = {}) {
     if (!options.onClick) {
       // If the anchor has an URL, open it in a new tab. If not, show the
       // current object actor.
@@ -2550,8 +2496,7 @@ Widgets.JSObject.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
     return anchor;
   },
 
-  openObjectInVariablesView: function()
-  {
+  openObjectInVariablesView: function() {
     this.output.openVariablesView({
       label: VariablesView.getString(this.objectActor, { concise: true }),
       objectActor: this.objectActor,
@@ -2559,8 +2504,7 @@ Widgets.JSObject.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
     });
   },
 
-  storeObjectInWindow: function()
-  {
+  storeObjectInWindow: function() {
     let evalString = `{ let i = 0;
       while (this.hasOwnProperty("temp" + i) && i < 1000) {
         i++;
@@ -2572,18 +2516,19 @@ Widgets.JSObject.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
       selectedObjectActor: this.objectActor.actor,
     };
 
-    this.output.owner.jsterm.requestEvaluation(evalString, options).then((res) => {
-      this.output.owner.jsterm.focus();
-      this.output.owner.jsterm.setInputValue(res.result);
-    });
+    this.output.owner.jsterm.requestEvaluation(evalString, options).then(
+      (res) => {
+        this.output.owner.jsterm.focus();
+        this.output.owner.jsterm.setInputValue(res.result);
+      }
+    );
   },
 
   /**
    * The click event handler for objects shown inline.
    * @private
    */
-  _onClick: function()
-  {
+  _onClick: function() {
     this.openObjectInVariablesView();
   },
 
@@ -2631,11 +2576,10 @@ Widgets.JSObject.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
    *        Optional DOM element to append the string to. The default is
    *        this.element.
    */
-  _text: function(str, target = this.element)
-  {
+  _text: function(str, target = this.element) {
     target.appendChild(this.document.createTextNode(str));
   },
-}); // Widgets.JSObject.prototype
+});
 
 Widgets.ObjectRenderers = {};
 Widgets.ObjectRenderers.byKind = {};
@@ -2667,8 +2611,7 @@ Widgets.ObjectRenderers.byClass = {};
  *        - render (function, required): the method that displays the given
  *        object actor.
  */
-Widgets.ObjectRenderers.add = function(obj)
-{
+Widgets.ObjectRenderers.add = function(obj) {
   let extendObj = obj.extends || Widgets.JSObject;
 
   let constructor = function() {
@@ -2699,11 +2642,10 @@ Widgets.ObjectRenderers.add = function(obj)
   } else if (obj.byKind) {
     Widgets.ObjectRenderers.byKind[obj.byKind] = constructor;
   } else {
-    throw new Error("You are adding an object renderer without any byClass or " +
-                    "byKind property.");
+    throw new Error("You are adding an object renderer without any byClass " +
+                    "or byKind property.");
   }
 };
-
 
 /**
  * The widget used for displaying Date objects.
@@ -2711,27 +2653,30 @@ Widgets.ObjectRenderers.add = function(obj)
 Widgets.ObjectRenderers.add({
   byClass: "Date",
 
-  render: function()
-  {
+  render: function() {
     let {preview} = this.objectActor;
     this.element = this.el("span.class-" + this.objectActor.class);
 
     let anchorText = this.objectActor.class;
     let anchorClass = "cm-variable";
-    if (preview && "timestamp" in preview && typeof preview.timestamp != "number") {
-      anchorText = new Date(preview.timestamp).toString(); // invalid date
+    if (preview && "timestamp" in preview &&
+        typeof preview.timestamp != "number") {
+      // invalid date
+      anchorText = new Date(preview.timestamp).toString();
       anchorClass = "";
     }
 
     this._anchor(anchorText, { className: anchorClass });
 
-    if (!preview || !("timestamp" in preview) || typeof preview.timestamp != "number") {
+    if (!preview || !("timestamp" in preview) ||
+        typeof preview.timestamp != "number") {
       return;
     }
 
     this._text(" ");
 
-    let elem = this.el("span.cm-string-2", new Date(preview.timestamp).toISOString());
+    let elem = this.el("span.cm-string-2",
+                       new Date(preview.timestamp).toISOString());
     this.element.appendChild(elem);
   },
 });
@@ -2742,16 +2687,13 @@ Widgets.ObjectRenderers.add({
 Widgets.ObjectRenderers.add({
   byClass: "Function",
 
-  render: function()
-  {
+  render: function() {
     let grip = this.objectActor;
     this.element = this.el("span.class-" + this.objectActor.class);
 
     // TODO: Bug 948484 - support arrow functions and ES6 generators
     let name = grip.userDisplayName || grip.displayName || grip.name || "";
     name = VariablesView.getString(name, { noStringQuotes: true });
-
-    let str = this.options.concise ? name || "function " : "function " + name;
 
     if (this.options.concise) {
       this._anchor(name || "function", {
@@ -2786,16 +2728,15 @@ Widgets.ObjectRenderers.add({
     this._text(")");
   },
 
-  _onClick: function () {
+  _onClick: function() {
     let location = this.objectActor.location;
     if (location && IGNORED_SOURCE_URLS.indexOf(location.url) === -1) {
       this.output.openLocationInDebugger(location);
-    }
-    else {
+    } else {
       this.openObjectInVariablesView();
     }
   }
-}); // Widgets.ObjectRenderers.byClass.Function
+});
 
 /**
  * The widget used for displaying ArrayLike objects.
@@ -2803,8 +2744,7 @@ Widgets.ObjectRenderers.add({
 Widgets.ObjectRenderers.add({
   byKind: "ArrayLike",
 
-  render: function()
-  {
+  render: function() {
     let {preview} = this.objectActor;
     let {items} = preview;
     this.element = this.el("span.kind-" + preview.kind);
@@ -2828,8 +2768,7 @@ Widgets.ObjectRenderers.add({
     for (let item of items) {
       if (item === null) {
         emptySlots++;
-      }
-      else {
+      } else {
         renderSeparator();
         isFirst = false;
 
@@ -2838,7 +2777,11 @@ Widgets.ObjectRenderers.add({
           emptySlots = 0;
         }
 
-        let elem = this.message._renderValueGrip(item, { concise: true, shorten: true });
+        let elem = this.message._renderValueGrip(item, {
+          concise: true,
+          shorten: true
+        });
+
         this.element.appendChild(elem);
       }
     }
@@ -2860,16 +2803,16 @@ Widgets.ObjectRenderers.add({
     this._text(" ]");
   },
 
-  _renderEmptySlots: function(aNumSlots, aAppendComma=true) {
+  _renderEmptySlots: function(numSlots, aAppendComma = true) {
     let slotLabel = l10n.getStr("emptySlotLabel");
-    let slotText = PluralForm.get(aNumSlots, slotLabel);
-    this._text("<" + slotText.replace("#1", aNumSlots) + ">");
+    let slotText = PluralForm.get(numSlots, slotLabel);
+    this._text("<" + slotText.replace("#1", numSlots) + ">");
     if (aAppendComma) {
       this._text(", ");
     }
-  },
+  }
 
-}); // Widgets.ObjectRenderers.byKind.ArrayLike
+});
 
 /**
  * The widget used for displaying MapLike objects.
@@ -2877,8 +2820,7 @@ Widgets.ObjectRenderers.add({
 Widgets.ObjectRenderers.add({
   byKind: "MapLike",
 
-  render: function()
-  {
+  render: function() {
     let {preview} = this.objectActor;
     let {entries} = preview;
 
@@ -2933,7 +2875,7 @@ Widgets.ObjectRenderers.add({
 
     this._text(" }");
   },
-}); // Widgets.ObjectRenderers.byKind.MapLike
+});
 
 /**
  * The widget used for displaying objects with a URL.
@@ -2941,14 +2883,12 @@ Widgets.ObjectRenderers.add({
 Widgets.ObjectRenderers.add({
   byKind: "ObjectWithURL",
 
-  render: function()
-  {
+  render: function() {
     this.element = this._renderElement(this.objectActor,
                                        this.objectActor.preview.url);
   },
 
-  _renderElement: function(objectActor, url)
-  {
+  _renderElement: function(objectActor, url) {
     let container = this.el("span.kind-" + objectActor.preview.kind);
 
     this._anchor(objectActor.class, {
@@ -2958,13 +2898,14 @@ Widgets.ObjectRenderers.add({
 
     if (!VariablesView.isFalsy({ value: url })) {
       this._text(" \u2192 ", container);
-      let shortUrl = getSourceNames(url)[this.options.concise ? "short" : "long"];
+      let sourceNameAccessor = this.options.concise ? "short" : "long";
+      let shortUrl = getSourceNames(url)[sourceNameAccessor];
       this._anchor(shortUrl, { href: url, appendTo: container });
     }
 
     return container;
   },
-}); // Widgets.ObjectRenderers.byKind.ObjectWithURL
+});
 
 /**
  * The widget used for displaying objects with a string next to them.
@@ -2972,8 +2913,7 @@ Widgets.ObjectRenderers.add({
 Widgets.ObjectRenderers.add({
   byKind: "ObjectWithText",
 
-  render: function()
-  {
+  render: function() {
     let {preview} = this.objectActor;
     this.element = this.el("span.kind-" + preview.kind);
 
@@ -2993,8 +2933,7 @@ Widgets.ObjectRenderers.add({
 Widgets.ObjectRenderers.add({
   byKind: "DOMEvent",
 
-  render: function()
-  {
+  render: function() {
     let {preview} = this.objectActor;
 
     let container = this.element = this.el("span.kind-" + preview.kind);
@@ -3026,7 +2965,8 @@ Widgets.ObjectRenderers.add({
     if (preview.target) {
       container.appendChild(this.el("span.cm-property", "target"));
       this._text(": ");
-      let target = this.message._renderValueGrip(preview.target, { concise: true });
+      let target = this.message._renderValueGrip(preview.target,
+                                                 { concise: true });
       container.appendChild(target);
       shown++;
     }
@@ -3048,7 +2988,7 @@ Widgets.ObjectRenderers.add({
 
     this._text(" }");
   },
-}); // Widgets.ObjectRenderers.byKind.DOMEvent
+});
 
 /**
  * The widget used for displaying DOM node previews.
@@ -3075,16 +3015,17 @@ Widgets.ObjectRenderers.add({
     }
   },
 
-  render: function()
-  {
+  render: function() {
+    let {preview} = this.objectActor;
+
     switch (this.objectActor.preview.nodeType) {
       case Ci.nsIDOMNode.DOCUMENT_NODE:
         this._renderDocumentNode();
         break;
       case Ci.nsIDOMNode.ATTRIBUTE_NODE: {
-        let {preview} = this.objectActor;
         this.element = this.el("span.attributeNode.kind-" + preview.kind);
-        let attr = this._renderAttributeNode(preview.nodeName, preview.value, true);
+        let attr = this._renderAttributeNode(preview.nodeName, preview.value,
+                                             true);
         this.element.appendChild(attr);
         break;
       }
@@ -3105,8 +3046,7 @@ Widgets.ObjectRenderers.add({
     }
   },
 
-  _renderDocumentNode: function()
-  {
+  _renderDocumentNode: function() {
     let fn =
       Widgets.ObjectRenderers.byKind.ObjectWithURL.prototype._renderElement;
     this.element = fn.call(this, this.objectActor,
@@ -3114,8 +3054,7 @@ Widgets.ObjectRenderers.add({
     this.element.classList.add("documentNode");
   },
 
-  _renderAttributeNode: function(nodeName, nodeValue, addLink)
-  {
+  _renderAttributeNode: function(nodeName, nodeValue, addLink) {
     let value = VariablesView.getString(nodeValue, { noStringQuotes: true });
 
     let fragment = this.document.createDocumentFragment();
@@ -3132,8 +3071,7 @@ Widgets.ObjectRenderers.add({
     return fragment;
   },
 
-  _renderTextNode: function()
-  {
+  _renderTextNode: function() {
     let {preview} = this.objectActor;
     this.element = this.el("span.textNode.kind-" + preview.kind);
 
@@ -3144,8 +3082,7 @@ Widgets.ObjectRenderers.add({
     this.element.appendChild(this.el("span.console-string", text));
   },
 
-  _renderCommentNode: function()
-  {
+  _renderCommentNode: function() {
     let {preview} = this.objectActor;
     let comment = "<!-- " + VariablesView.getString(preview.textContent, {
       noStringQuotes: true,
@@ -3156,8 +3093,7 @@ Widgets.ObjectRenderers.add({
     });
   },
 
-  _renderDocumentFragmentNode: function()
-  {
+  _renderDocumentFragmentNode: function() {
     let {preview} = this.objectActor;
     let {childNodes} = preview;
     let container = this.element = this.el("span.documentFragmentNode.kind-" +
@@ -3167,7 +3103,8 @@ Widgets.ObjectRenderers.add({
 
     if (!childNodes || this.options.concise) {
       this._text("[");
-      container.appendChild(this.el("span.cm-number", preview.childNodesLength));
+      let childNodesLength = preview.childNodesLength;
+      container.appendChild(this.el("span.cm-number", childNodesLength));
       this._text("]");
       return;
     }
@@ -3196,12 +3133,11 @@ Widgets.ObjectRenderers.add({
     this._text(" ]");
   },
 
-  _renderElementNode: function()
-  {
-    let doc = this.document;
+  _renderElementNode: function() {
     let {attributes, nodeName} = this.objectActor.preview;
 
-    this.element = this.el("span." + "kind-" + this.objectActor.preview.kind + ".elementNode");
+    this.element = this.el("span." + "kind-" + this.objectActor.preview.kind +
+                           ".elementNode");
 
     let openTag = this.el("span.cm-tag");
     openTag.textContent = "<";
@@ -3217,7 +3153,8 @@ Widgets.ObjectRenderers.add({
         tagName.appendChild(this.el("span.cm-attribute", "#" + attributes.id));
       }
       if (attributes.class) {
-        tagName.appendChild(this.el("span.cm-attribute", "." + attributes.class.split(/\s+/g).join(".")));
+        let dotJoined = "." + attributes.class.split(/\s+/g).join(".");
+        tagName.appendChild(this.el("span.cm-attribute", dotJoined));
       }
     } else {
       for (let name of Object.keys(attributes)) {
@@ -3247,8 +3184,7 @@ Widgets.ObjectRenderers.add({
    * if the node is in a DocumentFragment or not part of the tree, or not of
    * type Ci.nsIDOMNode.ELEMENT_NODE).
    */
-  linkToInspector: Task.async(function*()
-  {
+  linkToInspector: Task.async(function*() {
     if (this._linkedToInspector) {
       return;
     }
@@ -3263,13 +3199,15 @@ Widgets.ObjectRenderers.add({
     let target = this.message.output.toolboxTarget;
     this.toolbox = gDevTools.getToolbox(target);
     if (!this.toolbox) {
-      throw new Error("The object cannot be linked to the inspector without a " +
-        "toolbox");
+      throw new Error("The object cannot be linked to the inspector without " +
+        "a toolbox");
     }
 
     // Checking that the inspector supports the node
     yield this.toolbox.initInspector();
-    this._nodeFront = yield this.toolbox.walker.getNodeActorFromObjectActor(this.objectActor.actor);
+    let walker = this.toolbox.walker;
+    let getNodeActorFromObjectActor = walker.getNodeActorFromObjectActor;
+    this._nodeFront = yield getNodeActorFromObjectActor(this.objectActor.actor);
     if (!this._nodeFront) {
       throw new Error("The object cannot be linked to the inspector, the " +
         "corresponding nodeFront could not be found");
@@ -3304,14 +3242,13 @@ Widgets.ObjectRenderers.add({
    * @return a promise that resolves when the node has been highlighted, or
    * rejects if the node cannot be highlighted (detached from the DOM)
    */
-  highlightDomNode: Task.async(function*()
-  {
+  highlightDomNode: Task.async(function*() {
     yield this.linkToInspector();
     let isAttached = yield this.toolbox.walker.isInDOMTree(this._nodeFront);
     if (isAttached) {
       yield this.toolbox.highlighterUtils.highlightNodeFront(this._nodeFront);
     } else {
-      throw null;
+      throw new Error("node is not attached");
     }
   }),
 
@@ -3320,8 +3257,7 @@ Widgets.ObjectRenderers.add({
    * @see highlightDomNode
    * @return a promise that resolves when the highlighter has been hidden
    */
-  unhighlightDomNode: function()
-  {
+  unhighlightDomNode: function() {
     return this.linkToInspector().then(() => {
       return this.toolbox.highlighterUtils.unhighlight();
     }).then(null, Cu.reportError);
@@ -3334,8 +3270,7 @@ Widgets.ObjectRenderers.add({
    * (detached from the DOM). Note that in any case, the inspector panel will
    * be switched to.
    */
-  openNodeInInspector: Task.async(function*()
-  {
+  openNodeInInspector: Task.async(function*() {
     yield this.linkToInspector();
     yield this.toolbox.selectTool("inspector");
 
@@ -3346,21 +3281,24 @@ Widgets.ObjectRenderers.add({
       yield this.toolbox.selection.setNodeFront(this._nodeFront, "console");
       yield onReady.promise;
     } else {
-      throw null;
+      throw new Error("node is not attached");
     }
   }),
 
-  destroy: function()
-  {
+  destroy: function() {
     if (this.toolbox && this._nodeFront) {
-      this.element.removeEventListener("mouseover", this.highlightDomNode, false);
-      this.element.removeEventListener("mouseout", this.unhighlightDomNode, false);
-      this._openInspectorNode.removeEventListener("mousedown", this.openNodeInInspector, true);
+      this.element.removeEventListener("mouseover", this.highlightDomNode,
+                                       false);
+      this.element.removeEventListener("mouseout", this.unhighlightDomNode,
+                                       false);
+      this._openInspectorNode.removeEventListener("mousedown",
+                                                  this.openNodeInInspector,
+                                                  true);
       this.toolbox = null;
       this._nodeFront = null;
     }
   },
-}); // Widgets.ObjectRenderers.byKind.DOMNode
+});
 
 /**
  * The widget user for displaying Promise objects.
@@ -3368,8 +3306,7 @@ Widgets.ObjectRenderers.add({
 Widgets.ObjectRenderers.add({
   byClass: "Promise",
 
-  render: function()
-  {
+  render: function() {
     let { ownProperties, safeGetterValues } = this.objectActor.preview || {};
     if ((!ownProperties && !safeGetterValues) || this.options.concise) {
       this._renderConciseObject();
@@ -3396,7 +3333,7 @@ Widgets.ObjectRenderers.add({
     this._renderObjectProperties(container, addedPromiseInternalProps);
     this._renderObjectSuffix();
   }
-}); // Widgets.ObjectRenderers.byClass.Promise
+});
 
 /*
  * A renderer used for wrapped primitive objects.
@@ -3452,8 +3389,7 @@ Widgets.ObjectRenderers.add({
 Widgets.ObjectRenderers.add({
   byKind: "Object",
 
-  render: function()
-  {
+  render: function() {
     let { ownProperties, safeGetterValues } = this.objectActor.preview || {};
     if ((!ownProperties && !safeGetterValues) || this.options.concise) {
       this._renderConciseObject();
@@ -3464,7 +3400,7 @@ Widgets.ObjectRenderers.add({
     this._renderObjectProperties(this.element, false);
     this._renderObjectSuffix();
   },
-}); // Widgets.ObjectRenderers.byKind.Object
+});
 
 /**
  * The long string widget.
@@ -3477,8 +3413,7 @@ Widgets.ObjectRenderers.add({
  * @param object options
  *        Options, such as noStringQuotes
  */
-Widgets.LongString = function(message, longStringActor, options)
-{
+Widgets.LongString = function(message, longStringActor, options) {
   Widgets.BaseWidget.call(this, message);
   this.longStringActor = longStringActor;
   this.noStringQuotes = (options && "noStringQuotes" in options) ?
@@ -3488,16 +3423,14 @@ Widgets.LongString = function(message, longStringActor, options)
   this._onSubstring = this._onSubstring.bind(this);
 };
 
-Widgets.LongString.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
-{
+Widgets.LongString.prototype = Heritage.extend(Widgets.BaseWidget.prototype, {
   /**
    * The LongStringActor displayed by the widget.
    * @type object
    */
   longStringActor: null,
 
-  render: function()
-  {
+  render: function() {
     if (this.element) {
       return this;
     }
@@ -3516,8 +3449,7 @@ Widgets.LongString.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
    * @param string str
    *        The string to display.
    */
-  _renderString: function(str)
-  {
+  _renderString: function(str) {
     this.element.textContent = VariablesView.getString(str, {
       noStringQuotes: this.noStringQuotes,
       noEllipsis: true,
@@ -3530,8 +3462,7 @@ Widgets.LongString.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
    * @private
    * @return Element
    */
-  _renderEllipsis: function()
-  {
+  _renderEllipsis: function() {
     let ellipsis = this.document.createElementNS(XHTML_NS, "a");
     ellipsis.className = "longStringEllipsis";
     ellipsis.textContent = l10n.getStr("longStringEllipsis");
@@ -3547,12 +3478,11 @@ Widgets.LongString.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
    * function expands the element to show the full string.
    * @private
    */
-  _onClick: function()
-  {
-    let longString = this.output.webConsoleClient.longString(this.longStringActor);
-    let toIndex = Math.min(longString.length, MAX_LONG_STRING_LENGTH);
+  _onClick: function() {
+    let longStr = this.output.webConsoleClient.longString(this.longStringActor);
+    let toIndex = Math.min(longStr.length, MAX_LONG_STRING_LENGTH);
 
-    longString.substring(longString.initial.length, toIndex, this._onSubstring);
+    longStr.substring(longStr.initial.length, toIndex, this._onSubstring);
   },
 
   /**
@@ -3562,8 +3492,7 @@ Widgets.LongString.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
    * @param object response
    *        Response packet.
    */
-  _onSubstring: function(response)
-  {
+  _onSubstring: function(response) {
     if (response.error) {
       Cu.reportError("LongString substring failure: " + response.error);
       return;
@@ -3590,16 +3519,14 @@ Widgets.LongString.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
    * Inform user that the string he tries to view is too long.
    * @private
    */
-  _logWarningAboutStringTooLong: function()
-  {
+  _logWarningAboutStringTooLong: function() {
     let msg = new Messages.Simple(l10n.getStr("longStringTooLong"), {
       category: "output",
       severity: "warning",
     });
     this.output.addMessage(msg);
   },
-}); // Widgets.LongString.prototype
-
+});
 
 /**
  * The stacktrace widget.
@@ -3612,22 +3539,19 @@ Widgets.LongString.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
  *        The stacktrace to display, array of frames as supplied by the server,
  *        over the remote protocol.
  */
-Widgets.Stacktrace = function(message, stacktrace)
-{
+Widgets.Stacktrace = function(message, stacktrace) {
   Widgets.BaseWidget.call(this, message);
   this.stacktrace = stacktrace;
 };
 
-Widgets.Stacktrace.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
-{
+Widgets.Stacktrace.prototype = Heritage.extend(Widgets.BaseWidget.prototype, {
   /**
    * The stackframes received from the server.
    * @type array
    */
   stacktrace: null,
 
-  render: function()
-  {
+  render: function() {
     if (this.element) {
       return this;
     }
@@ -3653,8 +3577,7 @@ Widgets.Stacktrace.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
    * @return DOMElement
    *         The DOM element to display for the given frame.
    */
-  _renderFrame: function(frame)
-  {
+  _renderFrame: function(frame) {
     let fn = this.document.createElementNS(XHTML_NS, "span");
     fn.className = "function";
 
@@ -3675,8 +3598,10 @@ Widgets.Stacktrace.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
       fn.textContent = asyncCause + l10n.getStr("stacktrace.anonymousFunction");
     }
 
-    let location = this.output.owner.createLocationNode({url: frame.filename,
-                                                        line: frame.lineNumber});
+    let location = this.output.owner.createLocationNode({
+      url: frame.filename,
+      line: frame.lineNumber
+    });
 
     // .devtools-monospace sets font-size to 80%, however .body already has
     // .devtools-monospace. If we keep it here, the location would be rendered
@@ -3690,8 +3615,7 @@ Widgets.Stacktrace.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
 
     return elem;
   },
-}); // Widgets.Stacktrace.prototype
-
+});
 
 /**
  * The table widget.
@@ -3706,15 +3630,13 @@ Widgets.Stacktrace.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
  *        Object containing the key value pair of the id and display name for
  *        the columns in the table.
  */
-Widgets.Table = function(message, data, columns)
-{
+Widgets.Table = function(message, data, columns) {
   Widgets.BaseWidget.call(this, message);
   this.data = data;
   this.columns = columns;
 };
 
-Widgets.Table.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
-{
+Widgets.Table.prototype = Heritage.extend(Widgets.BaseWidget.prototype, {
   /**
    * Array of objects that holds the data to output in the table.
    * @type array
@@ -3748,10 +3670,9 @@ Widgets.Table.prototype = Heritage.extend(Widgets.BaseWidget.prototype,
 
     return this;
   }
-}); // Widgets.Table.prototype
+});
 
-function gSequenceId()
-{
+function gSequenceId() {
   return gSequenceId.n++;
 }
 gSequenceId.n = 0;
