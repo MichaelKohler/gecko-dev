@@ -104,6 +104,7 @@ devtools/client/shared/**
 devtools/client/sourceeditor/**
 devtools/client/webaudioeditor/**
 devtools/client/webconsole/**
+!devtools/client/webconsole/console-output.js
 !devtools/client/webconsole/panel.js
 !devtools/client/webconsole/jsterm.js
 devtools/client/webide/**
