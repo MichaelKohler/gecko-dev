@@ -15,29 +15,30 @@ function test() {
   });
 }
 
-function testFilterButtons(aHud) {
-  let hudBox = aHud.ui.rootElement;
+function testFilterButtons(hud) {
+  let hudBox = hud.ui.rootElement;
 
-  testRightClick("net", hudBox, aHud)
-    .then(() => testRightClick("css", hudBox, aHud))
-    .then(() => testRightClick("js", hudBox, aHud))
-    .then(() => testRightClick("logging", hudBox, aHud))
-    .then(() => testRightClick("security", hudBox, aHud))
+  testRightClick("net", hudBox, hud)
+    .then(() => testRightClick("css", hudBox, hud))
+    .then(() => testRightClick("js", hudBox, hud))
+    .then(() => testRightClick("logging", hudBox, hud))
+    .then(() => testRightClick("security", hudBox, hud))
     .then(finishTest);
 }
 
-function testRightClick(aCategory, hudBox, aHud) {
+function testRightClick(category, hudBox, hud) {
   let deferred = promise.defer();
-  let selector = ".webconsole-filter-button[category=\"" + aCategory + "\"]";
+  let selector = ".webconsole-filter-button[category=\"" + category + "\"]";
   let button = hudBox.querySelector(selector);
-  let mainButton = getMainButton(button, aHud);
+  let mainButton = getMainButton(button, hud);
   let origCheckedState = button.getAttribute("aria-pressed");
-  let contextMenu = aHud.iframeWindow.document.getElementById(aCategory + "-contextmenu");
+  let contextMenuId = category + "-contextmenu";
+  let contextMenu = hud.iframeWindow.document.getElementById(contextMenuId);
 
   function verifyContextMenuIsClosed() {
     info("verify the context menu is closed");
     is(button.getAttribute("open"), false, "The context menu for the \"" +
-       aCategory + "\" button is closed");
+       category + "\" button is closed");
   }
 
   function verifyOriginalCheckedState() {
@@ -79,8 +80,8 @@ function testRightClick(aCategory, hudBox, aHud) {
   return deferred.promise;
 }
 
-function getMainButton(aTargetButton, aHud) {
-  let anonymousNodes = aHud.ui.document.getAnonymousNodes(aTargetButton);
+function getMainButton(targetButton, hud) {
+  let anonymousNodes = hud.ui.document.getAnonymousNodes(targetButton);
   let subbutton;
 
   for (let i = 0; i < anonymousNodes.length; i++) {
