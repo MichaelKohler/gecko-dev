@@ -1,3 +1,5 @@
+"use strict";
+
 function a() {
   Components.utils.reportError("bug1141222");
 }
