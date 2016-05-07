@@ -42,7 +42,7 @@ add_task(function* () {
   yield waitForMessages(msgForLocation1);
 
   // load second url
-  content.location = TEST_URI2;
+  yield BrowserTestUtils.loadURI(gBrowser.selectedBrowser, TEST_URI2);
   yield loadBrowser(gBrowser.selectedBrowser);
 
   is(hud.outputNode.textContent.indexOf("Permission denied"), -1,
@@ -74,12 +74,10 @@ add_task(function* () {
 
   gBrowser.goBack();
 
-  yield waitForSuccess({
-    name: "go back",
-    validator: function() {
-      return content.location.href == TEST_URI1;
-    },
-  });
+  yield ContentTask.spawn(gBrowser.selectedBrowser, TEST_URI1,
+    function* (prevURI) {
+      return content.location.href == prevURI;
+    });
 
   hud.jsterm.clearOutput();
   executeSoon(() => {
