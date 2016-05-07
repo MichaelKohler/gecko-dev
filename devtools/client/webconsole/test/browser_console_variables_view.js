@@ -12,7 +12,7 @@ const TEST_URI = "http://example.com/browser/devtools/client/webconsole/" +
 
 var hud, gVariablesView;
 
-registerCleanupFunction(function() {
+registerCleanupFunction(function () {
   hud = gVariablesView = null;
 });
 
@@ -28,7 +28,8 @@ add_task(function* () {
                               "message text check");
 
   executeSoon(() => {
-    EventUtils.synthesizeMouse(msg.querySelector("a"), 2, 2, {}, hud.iframeWindow);
+    EventUtils.synthesizeMouse(msg.querySelector("a"), 2, 2, {},
+      hud.iframeWindow);
   });
 
   let varView = yield hud.jsterm.once("variablesview-fetched");
@@ -74,20 +75,20 @@ add_task(function* () {
   yield testPropDelete(prop);
 });
 
-function onFooObjFetch(aVar) {
-  gVariablesView = aVar._variablesView;
+function onFooObjFetch(variable) {
+  gVariablesView = variable._variablesView;
   ok(gVariablesView, "variables view object");
 
-  return findVariableViewProperties(aVar, [
+  return findVariableViewProperties(variable, [
     { name: "testProp", value: "testValue" },
   ], { webconsole: hud });
 }
 
-function onTestPropFound(aResults) {
-  let prop = aResults[0].matchedProp;
+function onTestPropFound(results) {
+  let prop = results[0].matchedProp;
   ok(prop, "matched the |testProp| property in the variables view");
 
-  is("testValue", aResults[0].value,
+  is("testValue", results[0].value,
      "|fooObj.testProp| value is correct");
 
   // Check that property value updates work and that jsterm functions can be
@@ -100,22 +101,28 @@ function onTestPropFound(aResults) {
   });
 }
 
-function onFooObjFetchAfterUpdate(aVar) {
+function* onFooObjFetchAfterUpdate(variable) {
   info("onFooObjFetchAfterUpdate");
-  let expectedValue = content.document.title + content.location +
-                      "[object HTMLParagraphElement]";
+  let expectedValue = yield ContentTask.spawn(gBrowser.selectedBrowser, null,
+    function* () {
+      return content.document.title + content.location +
+        "[object HTMLParagraphElement]";
+    });
 
-  return findVariableViewProperties(aVar, [
+  return findVariableViewProperties(variable, [
     { name: "testProp", value: expectedValue },
   ], { webconsole: hud });
 }
 
-function onUpdatedTestPropFound(aResults) {
-  let prop = aResults[0].matchedProp;
+function* onUpdatedTestPropFound(results) {
+  let prop = results[0].matchedProp;
   ok(prop, "matched the updated |testProp| property value");
 
-  is(content.wrappedJSObject.fooObj.testProp, aResults[0].value,
-     "|fooObj.testProp| value has been updated");
+  ContentTask.spawn(gBrowser.selectedBrowser, results[0].value,
+     function* (expectedValue) {
+       is(content.wrappedJSObject.fooObj.testProp, expectedValue,
+          "|fooObj.testProp| value has been updated");
+     });
 
   // Check that property name updates work.
   return updateVariablesViewProperty({
@@ -126,28 +133,32 @@ function onUpdatedTestPropFound(aResults) {
   });
 }
 
-function* onFooObjFetchAfterPropRename(aVar) {
+function* onFooObjFetchAfterPropRename(variable) {
   info("onFooObjFetchAfterPropRename");
 
-  let expectedValue = yield ContentTask.spawn(gBrowser.selectedBrowser, {}, function* () {
-    let para = content.wrappedJSObject.document.querySelector("p");
-    return content.document.title + content.location + para;
-  });
+  let expectedValue = yield ContentTask.spawn(gBrowser.selectedBrowser, {},
+    function* () {
+      let para = content.wrappedJSObject.document.querySelector("p");
+      return content.document.title + content.location + para;
+    });
 
   // Check that the new value is in the variables view.
-  return findVariableViewProperties(aVar, [
+  return findVariableViewProperties(variable, [
     { name: "testUpdatedProp", value: expectedValue },
   ], { webconsole: hud });
 }
 
-function onRenamedTestPropFound(aResults) {
-  let prop = aResults[0].matchedProp;
+function onRenamedTestPropFound(results) {
+  let prop = results[0].matchedProp;
   ok(prop, "matched the renamed |testProp| property");
 
-  ok(!content.wrappedJSObject.fooObj.testProp,
-     "|fooObj.testProp| has been deleted");
-  is(content.wrappedJSObject.fooObj.testUpdatedProp, aResults[0].value,
-     "|fooObj.testUpdatedProp| is correct");
+  ContentTask.spawn(gBrowser.selectedBrowser, results[0].value,
+     function* (expectedValue) {
+       ok(!content.wrappedJSObject.fooObj.testProp,
+          "|fooObj.testProp| has been deleted");
+       is(content.wrappedJSObject.fooObj.testUpdatedProp, expectedValue,
+          "|fooObj.testUpdatedProp| is correct");
+     });
 
   // Check that property value updates that cause exceptions are reported in
   // the web console output.
@@ -159,22 +170,23 @@ function onRenamedTestPropFound(aResults) {
   });
 }
 
-function* onPropUpdateError(aVar) {
+function* onPropUpdateError(variable) {
   info("onPropUpdateError");
 
-  let expectedValue = yield ContentTask.spawn(gBrowser.selectedBrowser, {}, function* () {
-    let para = content.wrappedJSObject.document.querySelector("p");
-    return content.document.title + content.location + para;
-  });
+  let expectedValue = yield ContentTask.spawn(gBrowser.selectedBrowser, {},
+    function* () {
+      let para = content.wrappedJSObject.document.querySelector("p");
+      return content.document.title + content.location + para;
+    });
 
   // Make sure the property did not change.
-  return findVariableViewProperties(aVar, [
+  return findVariableViewProperties(variable, [
     { name: "testUpdatedProp", value: expectedValue },
   ], { webconsole: hud });
 }
 
-function onRenamedTestPropFoundAgain(aResults) {
-  let prop = aResults[0].matchedProp;
+function onRenamedTestPropFoundAgain(results) {
+  let prop = results[0].matchedProp;
   ok(prop, "matched the renamed |testProp| property again");
 
   return waitForMessages({
@@ -188,17 +200,20 @@ function onRenamedTestPropFoundAgain(aResults) {
   });
 }
 
-function testPropDelete(aProp) {
+function* testPropDelete(prop) {
   gVariablesView.window.focus();
-  aProp.focus();
+  prop.focus();
 
-  executeSoon(() => {
+  yield executeSoon(() => {
     EventUtils.synthesizeKey("VK_DELETE", {}, gVariablesView.window);
   });
 
-  return waitForSuccess({
-    name: "property deleted",
-    timeout: 60000,
-    validator: () => !("testUpdatedProp" in content.wrappedJSObject.fooObj)
+  // TODO: this might cause intermittents, is there anything else we could do
+  // here to wait until the property is deleted without having to write a
+  // waitForXXXX function which takes a promise for the validator?
+  yield DevToolsUtils.waitForTime(500);
+
+  yield ContentTask.spawn(gBrowser.selectedBrowser, null, function* () {
+    ok(!("testUpdatedProp" in content.wrappedJSObject.fooObj), "bla");
   });
 }
